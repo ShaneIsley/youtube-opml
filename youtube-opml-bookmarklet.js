@@ -465,32 +465,41 @@
         return alert("No feeds selected!");
       }
 
-      // Build the OPML XML string.
-      let xml =
-        '<?xml version="1.0" encoding="UTF-8"?>' +
-        '<opml version="1.0">' +
-        "<head><title>YouTube Feeds</title></head>" +
-        "<body>";
+      // Build the OPML XML string with proper formatting.
+      // Many parsers (including Go's encoding/xml used by nom, Miniflux, etc.)
+      // can fail on single-line XML with hundreds of attributes. Using newlines
+      // and indentation avoids buffer-boundary issues and aids debugging.
+      const lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<opml version="1.0">',
+        "  <head>",
+        "    <title>YouTube Feeds</title>",
+        "  </head>",
+        "  <body>",
+      ];
 
       // Get unique types from the selected checkboxes.
       const types = [...new Set(selected.map((cb) => cb.dataset.type))];
 
       types.forEach((type) => {
         // Each type gets a top-level outline node (e.g. "Subscriptions").
-        xml += `<outline text="${type}s" title="${type}s">`;
+        lines.push(`    <outline text="${type}s" title="${type}s">`);
 
         selected
           .filter((cb) => cb.dataset.type === type)
           .forEach((cb) => {
             const t = esc(cb.dataset.title);
             const u = esc(cb.value);
-            xml += `<outline text="${t}" title="${t}" type="rss" xmlUrl="${u}" />`;
+            lines.push(
+              `      <outline text="${t}" title="${t}" type="rss" xmlUrl="${u}" />`
+            );
           });
 
-        xml += `</outline>`;
+        lines.push("    </outline>");
       });
 
-      xml += "</body></opml>";
+      lines.push("  </body>", "</opml>");
+      const xml = lines.join("\n");
 
       // Trigger a file download via a temporary object URL.
       const blobUrl = URL.createObjectURL(
